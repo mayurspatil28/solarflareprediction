@@ -40,15 +40,6 @@ const FloatingNavbar = ({ sections }) => {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          {/* Logo */}
-          <motion.div
-            className="text-xl font-bold text-gradient-cyan cursor-pointer"
-            whileHover={{ scale: 1.05 }}
-            onClick={() => scrollToSection('hero')}
-          >
-            ✦ Solar Flare
-          </motion.div>
-
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-8 items-center">
             {sections.map((section) => (

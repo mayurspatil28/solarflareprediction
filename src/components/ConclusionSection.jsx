@@ -122,7 +122,7 @@ const ConclusionSection = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <motion.a
-              href="https://github.com"
+              href="https://github.com/mayurspatil28/solarflareprediction"
               target="_blank"
               rel="noopener noreferrer"
               whileHover={{ scale: 1.05 }}
@@ -167,21 +167,6 @@ const ConclusionSection = () => {
           ))}
         </motion.div>
 
-        {/* Final Message */}
-        <motion.div
-          className="text-center mt-16 pt-8 border-t border-cyan/10"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          viewport={{ once: true }}
-        >
-          <p className="text-gray-400 italic mb-4">
-            "The future of forecasting belongs to those who can harness the power of deep learning."
-          </p>
-          <p className="text-sm text-gray-500">
-            © 2024 Solar Flare Prediction Case Study | Built with React, TensorFlow & LSTM
-          </p>
-        </motion.div>
       </div>
     </div>
   );

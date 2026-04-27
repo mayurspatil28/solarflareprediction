@@ -31,13 +31,6 @@ const HeroSection = ({ onExploreClick }) => {
         initial="hidden"
         animate="visible"
       >
-        {/* Subtitle */}
-        <motion.div variants={itemVariants} className="mb-4">
-          <span className="inline-block px-4 py-2 rounded-full glassmorphic text-xs md:text-sm font-semibold text-cyan uppercase tracking-wider">
-            Deep Learning × Space Weather
-          </span>
-        </motion.div>
-
         {/* Main Title */}
         <motion.h1
           variants={itemVariants}

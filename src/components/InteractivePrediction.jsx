@@ -1,49 +1,83 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Play, RotateCcw } from 'lucide-react';
+import { Play, RotateCcw, AlertCircle } from 'lucide-react';
+
+const API_URL = 'http://localhost:5000/api';
 
 const InteractivePrediction = () => {
   const [horizon, setHorizon] = useState(10);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showPrediction, setShowPrediction] = useState(false);
+  const [chartData, setChartData] = useState([]);
+  const [historicalData, setHistoricalData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiConnected, setApiConnected] = useState(false);
 
-  // Generate realistic sunspot data (mock data)
-  const chartData = useMemo(() => {
-    const data = [];
-    const historicalPoints = 60;
+  // Load historical data on component mount
+  useEffect(() => {
+    const fetchHistoricalData = async () => {
+      try {
+        const response = await fetch(`${API_URL}/data`);
+        if (!response.ok) throw new Error('Failed to fetch historical data');
 
-    // Generate historical data with solar cycle pattern
-    for (let i = 0; i < historicalPoints; i++) {
-      const cycle = Math.sin((i / historicalPoints) * Math.PI * 2);
-      const noise = Math.random() * 10 - 5;
-      data.push({
-        month: `M${i + 1}`,
-        actual: Math.max(0, 50 + cycle * 40 + noise),
-        predicted: null,
-      });
-    }
-
-    // Add predicted values
-    if (showPrediction) {
-      let lastValue = data[historicalPoints - 1].actual;
-      for (let i = 0; i < horizon; i++) {
-        const trend = Math.sin(((historicalPoints + i) / (historicalPoints + horizon)) * Math.PI * 2);
-        const momentum = lastValue * 0.7 + 50 * 0.3 + trend * 10 + (Math.random() - 0.5) * 5;
-        lastValue = Math.max(0, momentum);
-        data.push({
-          month: `M${historicalPoints + i + 1}`,
-          actual: null,
-          predicted: lastValue,
-        });
+        const result = await response.json();
+        setHistoricalData(result.data);
+        setChartData(result.data);
+        setApiConnected(true);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching historical data:', err);
+        setError('Could not connect to API. Please ensure Flask server is running on port 5000.');
+        setApiConnected(false);
       }
+    };
+
+    fetchHistoricalData();
+  }, []);
+
+  // Fetch future predictions when running prediction
+  const fetchFuturePredictions = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ horizon }),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch predictions');
+
+      const result = await response.json();
+
+      // Combine historical and future data
+      const combined = [...historicalData];
+      result.predictions.forEach((pred, idx) => {
+        combined.push({
+          month: `M${historicalData.length + idx + 1}`,
+          actual: null,
+          predicted: pred.prediction,
+        });
+      });
+
+      setChartData(combined);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching predictions:', err);
+      setError('Error generating predictions. ' + err.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return data;
-  }, [horizon, showPrediction]);
-
-  const handleRunPrediction = () => {
+  const handleRunPrediction = async () => {
+    if (!apiConnected) {
+      setError('API not connected. Please start the Flask server.');
+      return;
+    }
     setIsAnimating(true);
+    await fetchFuturePredictions();
     setTimeout(() => {
       setShowPrediction(true);
       setIsAnimating(false);
@@ -53,6 +87,7 @@ const InteractivePrediction = () => {
   const handleReset = () => {
     setShowPrediction(false);
     setHorizon(10);
+    setChartData(historicalData);
   };
 
   const CustomTooltip = ({ active, payload }) => {
@@ -135,25 +170,53 @@ const InteractivePrediction = () => {
             <div className="flex gap-4 flex-wrap">
               <motion.button
                 onClick={handleRunPrediction}
-                disabled={isAnimating}
+                disabled={isAnimating || loading || !apiConnected}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-8 py-3 rounded-lg font-semibold text-black bg-gradient-to-r from-cyan to-cyan-light glow-cyan-strong cursor-pointer transition-smooth flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Play size={20} />
-                Run Prediction
+                {loading ? 'Predicting...' : 'Run Prediction'}
               </motion.button>
 
               <motion.button
                 onClick={handleReset}
+                disabled={loading}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 rounded-lg font-semibold text-cyan border border-cyan/30 hover:bg-cyan/10 transition-smooth flex items-center gap-2"
+                className="px-8 py-3 rounded-lg font-semibold text-cyan border border-cyan/30 hover:bg-cyan/10 transition-smooth flex items-center gap-2 disabled:opacity-50"
               >
                 <RotateCcw size={20} />
                 Reset
               </motion.button>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <motion.div
+                className="mt-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30 flex gap-3"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <AlertCircle className="text-red-500 flex-shrink-0" size={20} />
+                <p className="text-red-400 text-sm">{error}</p>
+              </motion.div>
+            )}
+
+            {/* API Status */}
+            {!apiConnected && (
+              <motion.div
+                className="mt-4 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex gap-3"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <AlertCircle className="text-yellow-500 flex-shrink-0" size={20} />
+                <div>
+                  <p className="text-yellow-400 text-sm font-semibold">Flask API not connected</p>
+                  <p className="text-yellow-400/70 text-xs mt-1">Please run: <code className="bg-black/30 px-2 py-1 rounded">python api_server.py</code></p>
+                </div>
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
@@ -237,15 +300,17 @@ const InteractivePrediction = () => {
           >
             <div className="p-4 rounded-lg bg-cyan/10 border border-cyan/20">
               <p className="text-gray-400 text-sm mb-1">Historical Data</p>
-              <p className="text-cyan font-semibold">60 months</p>
+              <p className="text-cyan font-semibold">{historicalData.length} months</p>
             </div>
             <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
               <p className="text-gray-400 text-sm mb-1">Prediction Period</p>
-              <p className="text-purple-300 font-semibold">{horizon} months</p>
+              <p className="text-purple-300 font-semibold">{showPrediction ? horizon : '—'} months</p>
             </div>
             <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-              <p className="text-gray-400 text-sm mb-1">Model Status</p>
-              <p className="text-green-300 font-semibold">{showPrediction ? 'Active' : 'Ready'}</p>
+              <p className="text-gray-400 text-sm mb-1">API Status</p>
+              <p className={`font-semibold ${apiConnected ? 'text-green-300' : 'text-red-300'}`}>
+                {apiConnected ? 'Connected' : 'Disconnected'}
+              </p>
             </div>
           </motion.div>
         </motion.div>
